@@ -56,6 +56,8 @@ Supported Types
 
 Not supported / tested yet
 --------------------------
+* List
+* Map
 * Combination of Set or UDT with Option
 * Adding custom types
 
