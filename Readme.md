@@ -8,6 +8,10 @@ Note:
 * this is in early development stage
 * meant as a case study so far
 * there are no public builds yet
+* contains weird hacks and class casts
+* not API stable
+
+Thanks a lot to the [Shapeless](https://github.com/milessabin/shapeless) team for their wonderful work.
 
 Usage
 -----
@@ -32,7 +36,8 @@ Have a cassandra table
       
 
 And let the Adapter automatically generated
-
+      
+      import package net.reactivecore.cca.CassandraCaseClassAdapter
 
       val adapter = CassandraCaseClassAdapter.make[Person]("persons")
       val session = // open cassandra session
