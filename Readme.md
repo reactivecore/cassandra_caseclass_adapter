@@ -1,0 +1,61 @@
+Cassandra Case Class Adapters
+=============================
+
+Maps Case classes to the Cassandra Java Driver using shapeless powered type classes.
+
+Note: 
+
+* this is in early development stage
+* meant as a case study so far
+* there are no public builds yet
+
+Usage
+-----
+
+Define a case class
+
+    case class Person (
+        id: UUID,
+        name: String,
+        age: Int
+      )
+      
+Have a cassandra table
+      
+      
+      CREATE TABLE persons (
+        id UUID,
+        name TEXT,
+        age INT,
+        PRIMARY KEY (id)
+      );
+      
+
+And let the Adapter automatically generated
+
+
+      val adapter = CassandraCaseClassAdapter.make[Person]("persons")
+      val session = // open cassandra session
+      val person = Person(UUIDs.random(), "John Doe", 42)
+      adapter.insert(person, session)
+      
+      val back: Seq[Person] = adapter.loadAllFromCassandra(session)
+       
+Supported Types
+---------------
+* Most fundamental types
+* Option (flaky)
+* Set
+* Primitive UDT handling
+
+
+Not supported / tested yet
+--------------------------
+* Combination of Set or UDT with Option
+* Adding custom types
+
+
+Testing
+-------
+* The unit tests need a Cassandra Instance running on `127.0.0.1`
+* They will recreate a keyspace called `unittest` on each single testcase.
