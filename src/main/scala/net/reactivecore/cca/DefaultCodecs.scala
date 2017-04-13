@@ -9,12 +9,6 @@ import shapeless.{ LabelledGeneric, LabelledProductTypeClass, the }
 
 trait DefaultCodecs {
 
-  private def nullableWrap[A <: AnyRef, B <: AnyRef](f: A => B): A => B = { a =>
-    if (a == null) {
-      null.asInstanceOf[B]
-    } else (f(a))
-  }
-
   implicit val stringCodec = PrimitiveCassandraConversionCodec.makeTrivial[String]
 
   implicit val intCodec = PrimitiveCassandraConversionCodec.makeTrivialConverted[Int, java.lang.Integer]
@@ -29,19 +23,19 @@ trait DefaultCodecs {
   implicit val dateCodec = PrimitiveCassandraConversionCodec.makeTrivial[Date]
 
   implicit val timestampCodec = PrimitiveCassandraConversionCodec[Timestamp, Date](
-    cassandraToScala = nullableWrap { d: Date => new Timestamp(d.getTime) },
+    cassandraToScala = d => new Timestamp(d.getTime),
     scalaToCassandra = s => s
   )
 
   implicit val ipAdressCodec = PrimitiveCassandraConversionCodec.makeTrivial[InetAddress]
 
   implicit val bigIntCodec = PrimitiveCassandraConversionCodec[BigInt, BigInteger](
-    cassandraToScala = nullableWrap { b: BigInteger => BigInt(b) },
+    cassandraToScala = b => BigInt(b),
     scalaToCassandra = (b: BigInt) => b.bigInteger
   )
 
   implicit val bidDecimalCodec = PrimitiveCassandraConversionCodec[BigDecimal, java.math.BigDecimal](
-    cassandraToScala = nullableWrap { b: java.math.BigDecimal => BigDecimal(b) },
+    cassandraToScala = b => BigDecimal(b),
     scalaToCassandra = s => s.underlying()
   )
 
