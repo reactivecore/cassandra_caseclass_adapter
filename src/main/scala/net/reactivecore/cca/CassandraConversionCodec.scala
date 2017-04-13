@@ -1,13 +1,11 @@
 package net.reactivecore.cca
 
-import java.util.UUID
-
-import com.datastax.driver.core.Session
-import net.reactivecore.cca.utils.{ CassandraCompoundAccessor, OrderedWriter }
+import net.reactivecore.cca.utils.{ CassandraReader, OrderedWriter }
 import shapeless._
 
 import scala.annotation.implicitNotFound
 import scala.reflect.ClassTag
+import scala.collection.JavaConverters._
 
 /**
  * Heart of the Cassandra Case Class Adapter. Describes types in a way in a way
@@ -16,6 +14,20 @@ import scala.reflect.ClassTag
 @implicitNotFound("No implicit converter found, this often means that a sub type has no implicit converter")
 sealed trait CassandraConversionCodec[T] {
   def isPrimitive: Boolean
+
+  /**
+   * Decodes from Cassandra Reader
+   */
+  def decodeFrom(reader: CassandraReader): T
+
+  /**
+   * Writes into ordered Writer.
+   */
+  def orderedWrite(instance: T, writer: OrderedWriter): Unit
+
+  private[cca] def forceOrderedWrite(instance: Any, writer: OrderedWriter): Unit = {
+    orderedWrite(instance.asInstanceOf[T], writer)
+  }
 }
 
 /**
@@ -33,35 +45,10 @@ case class CompoundCassandraConversionCodec[T](
 
   def isPrimitive: Boolean = false
 
-  /**
-   * Decode this compound object from a cassandra accessor.
-   */
-  def decodeFrom(accessor: CassandraCompoundAccessor): T = {
+  def decodeFrom(reader: CassandraReader): T = {
     val values = fields.map {
       case (name, subCodec) =>
-        subCodec match {
-          case p: PrimitiveCassandraConversionCodec[_, _] =>
-            p.cassandraToScala(accessor.getByName(name)(p.classTag))
-          case c: CompoundCassandraConversionCodec[_] =>
-            val subAccessor = accessor.getCompoundByName(name).getOrElse {
-              throw new DecodingException(s"Could not decode ${name}, got empty value. Trying to dereference <null> into a non-nullable sub object?")
-            }
-            c.decodeFrom(subAccessor)
-          case s: SetCodec[_] =>
-            s.subCodec match {
-              case p: PrimitiveCassandraConversionCodec[_, _] =>
-                val set = accessor.getSetByName(name)(p.classTag)
-                if (set == null) {
-                  null
-                } else {
-                  set.map(p.cassandraToScala)
-                }
-              case c: CompoundCassandraConversionCodec[_] =>
-                ???
-              case _ =>
-                throw new DecodingException(s"Strange set in set")
-            }
-        }
+        subCodec.decodeFrom(reader.getNamed(name))
     }
     constructor(values)
   }
@@ -71,35 +58,62 @@ case class CompoundCassandraConversionCodec[T](
     deconstructed.zip(fields).foreach {
       case (subFieldValue, (columnName, subCodec)) =>
         subCodec match {
-          case p: PrimitiveCassandraConversionCodec[_, _] =>
-            writer.write(p.forceScalaToCassandra(subFieldValue))
           case c: CompoundCassandraConversionCodec[_] =>
             val subWriter = writer.startGroup(columnName)
             c.forceOrderedWrite(subFieldValue, subWriter)
             writer.endGroup(subWriter)
-          case s: SetCodec[_] =>
-            // TODO: Move to SetCodec
-            s.subCodec match {
-              case sp: PrimitiveCassandraConversionCodec[_, _] =>
-                import scala.collection.JavaConverters._
-                val subFieldValues = subFieldValue.asInstanceOf[Set[_]].map(sp.forceScalaToCassandra).asJava
-                writer.write(subFieldValues)
-              case _: CompoundCassandraConversionCodec[_] =>
-                ???
-              case _: SetCodec[_] =>
-                ???
-            }
-
+          case other =>
+            other.forceOrderedWrite(subFieldValue, writer)
         }
     }
   }
+}
 
-  private[cca] def forceOrderedWrite(instance: Any, writer: OrderedWriter): Unit = {
-    orderedWrite(instance.asInstanceOf[T], writer)
+abstract class IterableCodec[SubType, IterableType <: Iterable[SubType]] extends CassandraConversionCodec[IterableType] {
+  val subCodec: CassandraConversionCodec[SubType]
+  override def isPrimitive: Boolean = false
+}
+
+case class SetCodec[SubType, CassandraType](subCodec: PrimitiveCassandraConversionCodec[SubType, CassandraType]) extends IterableCodec[SubType, Set[SubType]] {
+
+  override def decodeFrom(reader: CassandraReader): Set[SubType] = {
+    reader.getSet(subCodec.classTag).map(subCodec.cassandraToScala).toSet
+  }
+
+  override def orderedWrite(instance: Set[SubType], writer: OrderedWriter): Unit = {
+    val converted = instance.map(subCodec.scalaToCassandra).asJava
+    writer.write(converted)
   }
 }
 
-case class SetCodec[T](subCodec: CassandraConversionCodec[T]) extends CassandraConversionCodec[Set[T]]() {
+case class SeqCodec[SubType, CassandraType](subCodec: PrimitiveCassandraConversionCodec[SubType, CassandraType]) extends IterableCodec[SubType, Seq[SubType]] {
+
+  override def decodeFrom(reader: CassandraReader): Seq[SubType] = {
+    reader.getList(subCodec.classTag).map(subCodec.cassandraToScala).toSeq
+  }
+
+  override def orderedWrite(instance: Seq[SubType], writer: OrderedWriter): Unit = {
+    val converted = instance.map(subCodec.scalaToCassandra).asJava
+    writer.write(converted)
+  }
+}
+
+case class OptionalCodec[SubType, CassandraType](subCodec: PrimitiveCassandraConversionCodec[SubType, CassandraType]) extends CassandraConversionCodec[Option[SubType]] {
+  override def decodeFrom(reader: CassandraReader): Option[SubType] = {
+    if (reader.isNull) {
+      None
+    } else {
+      Some(subCodec.decodeFrom(reader))
+    }
+  }
+
+  override def orderedWrite(instance: Option[SubType], writer: OrderedWriter): Unit = {
+    instance match {
+      case None        => writer.write(null)
+      case Some(value) => subCodec.orderedWrite(value, writer)
+    }
+  }
+
   override def isPrimitive: Boolean = false
 }
 
@@ -123,6 +137,14 @@ case class PrimitiveCassandraConversionCodec[T, CassandraType: ClassTag](
   override def isPrimitive: Boolean = true
 
   private[cca] def forceScalaToCassandra(o: Any): CassandraType = scalaToCassandra(o.asInstanceOf[T])
+
+  override def decodeFrom(reader: CassandraReader): T = cassandraToScala(reader.get[CassandraType].getOrElse {
+    throw new DecodingException(s"Expected non null value while reading ${reader.position}")
+  })
+
+  override def orderedWrite(instance: T, writer: OrderedWriter): Unit = {
+    writer.write(scalaToCassandra(instance))
+  }
 }
 
 object PrimitiveCassandraConversionCodec {
@@ -131,6 +153,11 @@ object PrimitiveCassandraConversionCodec {
     throw new DecodingException(s"Got null when value was expected")
   } else c,
     scalaToCassandra = s => s
+  )
+
+  def makeTrivialConverted[T, CassandraType: ClassTag](implicit encoding: T => CassandraType, back: CassandraType => T) = PrimitiveCassandraConversionCodec[T, CassandraType](
+    cassandraToScala = back,
+    scalaToCassandra = encoding
   )
 }
 

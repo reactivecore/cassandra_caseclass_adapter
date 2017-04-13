@@ -26,3 +26,5 @@ ScalariformKeys.preferences := ScalariformKeys.preferences.value
 lazy val root = (project in file("."))
   .settings(commonSettings: _*)
   .settings(name := "cassandra-caseclass-adapter")
+
+parallelExecution in Test := false

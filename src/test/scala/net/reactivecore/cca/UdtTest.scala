@@ -15,7 +15,7 @@ class UdtTest extends TestBaseWithCassandra {
 
   val ddl =
     """
-      |CREATE TYPE address (
+      |CREATE TYPE address_type (
       | street TEXT,
       | num INT,
       | city TEXT
@@ -23,7 +23,7 @@ class UdtTest extends TestBaseWithCassandra {
       |
       |CREATE TABLE user_with_addresses (
       |  user TEXT,
-      |  address FROZEN<address>,
+      |  address FROZEN<address_type>,
       |  PRIMARY KEY(user)
       |);
     """.stripMargin

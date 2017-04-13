@@ -1,7 +1,7 @@
 package net.reactivecore.cca
 
 import com.datastax.driver.core.{ Row, Session, UserType }
-import net.reactivecore.cca.utils.{ CassandraCompoundAccessor, CompiledGroup, OrderedWriter }
+import net.reactivecore.cca.utils.{ CassandraReader, CompiledGroup, OrderedWriter }
 import shapeless._
 
 import scala.collection.mutable
@@ -45,7 +45,7 @@ private class AutoCassandraCaseClassAdapter[T: CompoundCassandraConversionCodec]
    * Access is done by Name.
    */
   override def fromRow(row: Row): T = {
-    val accessor = CassandraCompoundAccessor.make(row)
+    val accessor = CassandraReader.make(row)
     codec.decodeFrom(accessor)
   }
 

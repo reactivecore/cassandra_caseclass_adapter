@@ -19,14 +19,14 @@ trait DefaultCodecs {
 
   implicit val stringCodec = PrimitiveCassandraConversionCodec.makeTrivial[String]
 
-  implicit val intCodec = PrimitiveCassandraConversionCodec.makeTrivial[Int]
-  implicit val longCodec = PrimitiveCassandraConversionCodec.makeTrivial[Long]
-  implicit val boolCodec = PrimitiveCassandraConversionCodec.makeTrivial[Boolean]
+  implicit val intCodec = PrimitiveCassandraConversionCodec.makeTrivialConverted[Int, java.lang.Integer]
+  implicit val longCodec = PrimitiveCassandraConversionCodec.makeTrivialConverted[Long, java.lang.Long]
+  implicit val boolCodec = PrimitiveCassandraConversionCodec.makeTrivialConverted[Boolean, java.lang.Boolean]
 
   implicit val uuidCodec = PrimitiveCassandraConversionCodec.makeTrivial[UUID]
 
-  implicit val floatCodec = PrimitiveCassandraConversionCodec.makeTrivial[Float]
-  implicit val doubleCodec = PrimitiveCassandraConversionCodec.makeTrivial[Double]
+  implicit val floatCodec = PrimitiveCassandraConversionCodec.makeTrivialConverted[Float, java.lang.Float]
+  implicit val doubleCodec = PrimitiveCassandraConversionCodec.makeTrivialConverted[Double, java.lang.Double]
 
   implicit val dateCodec = PrimitiveCassandraConversionCodec.makeTrivial[Date]
 
@@ -47,10 +47,12 @@ trait DefaultCodecs {
     scalaToCassandra = s => s.underlying()
   )
 
-  implicit def setCodec[T: CassandraConversionCodec]: CassandraConversionCodec[Set[T]] = SetCodec(the[CassandraConversionCodec[T]])
+  implicit def primitiveSetCodec[T, CassandraType](implicit primitiveCodec: PrimitiveCassandraConversionCodec[T, CassandraType]): CassandraConversionCodec[Set[T]] =
+    SetCodec(primitiveCodec)
 
-  implicit def optionalCodec[T: ClassTag](implicit ev: Null <:< T): CassandraConversionCodec[Option[T]] = PrimitiveCassandraConversionCodec[Option[T], T](
-    cassandraToScala = c => Option(c),
-    scalaToCassandra = s => s.orNull
-  )
+  implicit def primitiveSeqCodec[T, CassandraType](implicit primitiveCodec: PrimitiveCassandraConversionCodec[T, CassandraType]): CassandraConversionCodec[Seq[T]] =
+    SeqCodec(primitiveCodec)
+
+  implicit def primitiveOptionalCodec[T, CassandraType](implicit primitiveCodec: PrimitiveCassandraConversionCodec[T, CassandraType]): CassandraConversionCodec[Option[T]] =
+    OptionalCodec(primitiveCodec)
 }

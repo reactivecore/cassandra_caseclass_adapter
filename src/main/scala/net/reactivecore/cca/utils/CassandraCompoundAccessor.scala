@@ -1,55 +1,146 @@
 package net.reactivecore.cca.utils
 
-import com.datastax.driver.core.GettableData
+import com.datastax.driver.core.{ GettableData, Row }
+import net.reactivecore.cca.DecodingException
 
 import scala.reflect.ClassTag
 import scala.collection.JavaConverters._
 
-/**
- * Wraps read access to cassandra compound types (e.g. Rows).
- * Note: methods are allowed to return null as this is the natural cassandra representation.
- */
-trait CassandraCompoundAccessor {
-  def getByName[CassandraType: ClassTag](name: String): CassandraType
+/** Generalized access to a cassandra row or single field. */
+trait CassandraReader {
+  /** Reads a single type, returns None if the type doesn't exist. Throw if it exists, but is from a wrong type. */
+  def get[CassandraType: ClassTag]: Option[CassandraType]
 
-  def getSetByName[CassandraType: ClassTag](name: String): Iterable[CassandraType]
+  /** Reads a single set. Note: cassandra treats null and empty set the same, returns None if the set itself was empty. */
+  def getSet[CassandraType: ClassTag]: Iterable[CassandraType]
 
-  def getCompoundByName(name: String): Option[CassandraCompoundAccessor]
+  /** Reads a single seq (List). Note cassandra treats null and empty as the same, returns None if the set itself was empty. */
+  def getList[CassandraType: ClassTag]: Iterable[CassandraType]
 
-  def getByNum[CassandraType: ClassTag](num: Int): CassandraType
+  def getNamed(name: String): CassandraReader
+
+  def getByNum(num: Int): CassandraReader
+
+  /** If the cell itself is null (e.g. result of getNamed on a non existing value). */
+  def isNull: Boolean = false
+
+  /** The reverse path to this value */
+  def path: List[Any]
+
+  /** Describes the position of the current reader. */
+  def position = path.reverse.mkString("/")
 }
 
-object CassandraCompoundAccessor {
+object CassandraReader {
 
-  private case class DefaultCassandraAccessor(row: GettableData) extends CassandraCompoundAccessor {
+  private def clazzOf[T: ClassTag] = implicitly[ClassTag[T]].runtimeClass.asInstanceOf[Class[T]]
+  private def className[T: ClassTag] = implicitly[ClassTag[T]].toString()
 
-    override def getByName[CassandraType: ClassTag](name: String): CassandraType = {
-      val clazz = implicitly[ClassTag[CassandraType]].runtimeClass.asInstanceOf[Class[CassandraType]]
-      row.get(name, clazz)
+  private case class NullReader(path: List[Any]) extends CassandraReader {
+    override def get[CassandraType: ClassTag]: Option[CassandraType] = None
+
+    override def getSet[CassandraType: ClassTag]: Iterable[CassandraType] = Set.empty
+
+    override def getList[CassandraType: ClassTag]: Iterable[CassandraType] = Seq.empty
+
+    override def getNamed(name: String): CassandraReader = NullReader(name :: path)
+
+    override def getByNum(num: Int): CassandraReader = NullReader(num :: path)
+
+    override def isNull: Boolean = true
+  }
+
+  private case class RowCassandraReader(path: List[Any], row: GettableData) extends CassandraReader {
+    override def get[CassandraType: ClassTag]: Option[CassandraType] = {
+      throw new DecodingException(s"Expected ${className[CassandraType]} at ${position}, got pure row")
     }
 
-    override def getSetByName[CassandraType: ClassTag](name: String): Set[CassandraType] = {
-      val clazz = implicitly[ClassTag[CassandraType]].runtimeClass.asInstanceOf[Class[CassandraType]]
-      val candidate = row.getSet(name, clazz)
-      if (candidate == null) {
-        null
-      } else {
-        candidate.asScala.toSet
+    override def getSet[CassandraType: ClassTag]: Set[CassandraType] = {
+      throw new DecodingException(s"Expected Set of ${className[CassandraType]} at ${position}, got pure row")
+    }
+
+    override def getList[CassandraType: ClassTag]: Iterable[CassandraType] = {
+      throw new DecodingException(s"Expected Seq of ${className[CassandraType]} at ${position}, got pure row")
+    }
+
+    override def getNamed(name: String): CassandraReader = {
+      if (row.isNull(name)) NullReader(name :: path) else {
+        RowCellReaderByCellName(name :: path, row, name)
       }
     }
 
-    override def getByNum[CassandraType: ClassTag](num: Int): CassandraType = {
-      val clazz = implicitly[ClassTag[CassandraType]].runtimeClass.asInstanceOf[Class[CassandraType]]
-      row.get(num, clazz)
-    }
-
-    override def getCompoundByName(name: String): Option[CassandraCompoundAccessor] = {
-      Option(row.getUDTValue(name)).map(DefaultCassandraAccessor)
+    override def getByNum(num: Int): CassandraReader = {
+      if (row.isNull(num)) {
+        NullReader(num :: path)
+      } else {
+        RowCellReaderByCellId(num :: path, row, num)
+      }
     }
   }
 
-  def make(row: GettableData): CassandraCompoundAccessor = {
-    DefaultCassandraAccessor(row)
+  private case class RowCellReaderByCellId(path: List[Any], row: GettableData, cellId: Int) extends CassandraReader {
+    override def get[CassandraType: ClassTag]: Option[CassandraType] = {
+      Some(row.get(cellId, clazzOf[CassandraType]))
+    }
+
+    override def getSet[CassandraType: ClassTag]: Iterable[CassandraType] = {
+      row.getSet(cellId, clazzOf[CassandraType]).asScala
+    }
+
+    override def getList[CassandraType: ClassTag]: Iterable[CassandraType] = {
+      row.getList(cellId, clazzOf[CassandraType]).asScala
+    }
+
+    override def getNamed(name: String): CassandraReader = {
+      val udtValue = row.getUDTValue(cellId)
+      if (udtValue == null || udtValue.isNull(name)) {
+        NullReader(name :: path)
+      } else {
+        RowCellReaderByCellName(name :: path, udtValue, name)
+      }
+    }
+
+    override def getByNum(num: Int): CassandraReader = {
+      val udtValue = row.getUDTValue(cellId)
+      if (udtValue == null || udtValue.isNull(num)) {
+        NullReader(num :: path)
+      } else {
+        RowCellReaderByCellId(num :: path, udtValue, num)
+      }
+    }
   }
+
+  private case class RowCellReaderByCellName(path: List[Any], row: GettableData, columnName: String) extends CassandraReader {
+    override def get[CassandraType: ClassTag]: Option[CassandraType] = {
+      Some(row.get(columnName, clazzOf[CassandraType]))
+    }
+
+    override def getSet[CassandraType: ClassTag]: Iterable[CassandraType] = {
+      row.getSet(columnName, clazzOf[CassandraType]).asScala
+    }
+
+    override def getList[CassandraType: ClassTag]: Iterable[CassandraType] = {
+      row.getList(columnName, clazzOf[CassandraType]).asScala
+    }
+
+    override def getNamed(name: String): CassandraReader = {
+      val udtValue = row.getUDTValue(columnName)
+      if (udtValue == null || udtValue.isNull(name)) {
+        NullReader(name :: path)
+      } else {
+        RowCellReaderByCellName(name :: path, udtValue, name)
+      }
+    }
+
+    override def getByNum(num: Int): CassandraReader = {
+      val udtValue = row.getUDTValue(columnName)
+      if (udtValue == null || udtValue.isNull(num)) {
+        NullReader(num :: path)
+      } else {
+        RowCellReaderByCellId(num :: path, udtValue, num)
+      }
+    }
+  }
+
+  def make(row: Row): CassandraReader = RowCassandraReader(List.empty, row)
 }
-
