@@ -1,7 +1,7 @@
 package net.reactivecore.cca
 
 import com.datastax.driver.core.{ Row, Session, UserType }
-import net.reactivecore.cca.utils.{ CassandraReader, CompiledGroup, OrderedWriter }
+import net.reactivecore.cca.utils._
 import shapeless._
 
 import scala.collection.mutable
@@ -58,24 +58,52 @@ private class AutoCassandraCaseClassAdapter[T: CompoundCassandraConversionCodec]
     val writer = OrderedWriter.makeCollector()
     codec.orderedWrite(instance, writer)
 
-    val values = treatUdtValues(writer.result().values, session)
+    val written = writer.result()
 
-    session.execute(query, values: _*)
+    val firstGroup = written.values match {
+      case IndexedSeq(CompiledGroup("", values, GroupType.Compound)) => values
+      case _ =>
+        // should not happen
+        throw new EncodingException(s"Expected case class to convert exactly into one group")
+    }
+
+    val treated = treatUdtValues(firstGroup, session)
+    session.execute(query, treated: _*)
   }
 
-  private def treatUdtValues(values: IndexedSeq[AnyRef], session: Session): IndexedSeq[AnyRef] = {
+  /**
+   * Treats the converion of compound elements into UDTValues.
+   * This is dependent to a running session connection (ast there is no way in creating UDTValues without
+   * UserType, which is also not possible to create without DB Connection).
+   */
+  private def treatUdtValues(values: IndexedSeq[AnyRef], session: Session, typeHint: Option[UserType] = None): IndexedSeq[AnyRef] = {
+    // TODO: This is messy and only supports depth of one...
     values.map {
-      case CompiledGroup(columnName, values) =>
-        val subValuesTreated = treatUdtValues(values, session)
+      case CompiledGroup(columnName, subValues, GroupType.ListGroup) =>
         val userType = userTypeCache.getUserType(columnName, session)
+        val subValuesTreated = treatUdtValues(subValues, session, Some(userType))
+
+        val converted = subValuesTreated.asJava
+        converted
+      case CompiledGroup(columnName, subValues, GroupType.SetGroup) =>
+        val userType = userTypeCache.getUserType(columnName, session)
+        val subValuesTreated = treatUdtValues(subValues, session, Some(userType))
+
+        val converted = subValuesTreated.toSet.asJava
+        converted
+      case CompiledGroup(columnName, subValues, GroupType.Compound) =>
+        val subValuesTreated = treatUdtValues(subValues, session)
+        val userType = typeHint.getOrElse(userTypeCache.getUserType(columnName, session))
         val value = userType.newValue()
 
         val fieldNames = userType.getFieldNames.asScala.toIndexedSeq
-        if (fieldNames.size != values.size) {
-          throw new EncodingException(s"Writing UDT in ${columnName} failed for ${tableName}, expected ${fieldNames.size}, found ${values.size}")
+        if (fieldNames.size != subValues.size) {
+          throw new EncodingException(s"Writing UDT in ${columnName} failed for ${tableName}, expected ${fieldNames.size}, found ${subValues.size}")
         }
         // TODO: Converter operation could be cached
         fieldNames.zip(subValuesTreated).foreach {
+          case (fieldName, singleFieldValue) if singleFieldValue == null =>
+            value.setToNull(fieldName)
           case (fieldName, singleFieldValue) =>
             value.set(fieldName, singleFieldValue, singleFieldValue.getClass.asInstanceOf[Class[AnyRef]])
         }
@@ -90,39 +118,7 @@ private class AutoCassandraCaseClassAdapter[T: CompoundCassandraConversionCodec]
     session.execute(query).all().asScala.map(fromRow)
   }
 
-  private object userTypeCache {
-
-    object lock
-    var cache: mutable.Map[String, UserType] = mutable.Map.empty
-
-    def getUserType(columnName: String, session: Session): UserType = {
-      val candidate = lock.synchronized(cache.get(columnName))
-      candidate match {
-        case Some(v) => v
-        case None =>
-          val userType = fetchUserType(columnName, session)
-          lock.synchronized {
-            cache.put(columnName, userType)
-          }
-          userType
-      }
-    }
-
-    private def fetchUserType(columnName: String, session: Session): UserType = {
-      val meta = session.getCluster.getMetadata
-      val column = (for {
-        keyspace <- Option(meta.getKeyspace(session.getLoggedKeyspace))
-        table <- Option(keyspace.getTable(tableName))
-        column <- Option(table.getColumn(columnName))
-      } yield column).getOrElse {
-        throw new EncodingException(s"Could not find type for column ${columnName} in ${tableName}")
-      }
-      column.getType match {
-        case user: UserType => user
-        case somethingElse  => throw new EncodingException(s"Expected UserTYpe for ${columnName} in ${tableName}, found ${somethingElse}")
-      }
-    }
-  }
+  val userTypeCache = new UserTypeCache(tableName)
 }
 
 object CassandraCaseClassAdapter {

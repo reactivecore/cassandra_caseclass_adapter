@@ -45,21 +45,31 @@ And let the Adapter automatically generated
       adapter.insert(person, session)
       
       val back: Seq[Person] = adapter.loadAllFromCassandra(session)
-       
+
+Supported
+---------
+* boiler plate free `fromRow`, `insert`, `loadAllFromCassandra`
+
 Supported Types
 ---------------
 * Most fundamental types
-* Option (flaky)
-* Set of Primitives
-* List of Primitives (as Seq)
+* Option
+* Set of Primitives and of UDT
+* List of Primitives (as Seq) and of UDT
 * Primitive UDT handling
 
 
 Not supported / tested yet
 --------------------------
 * Map
-* Combination of Set/Seq with UDT or Option
+* Tuples
+* Combination of Set/Seq with more than one UDT
 * Adding custom types
+* Prepared Statements for fast insert
+
+Not planned (yet)
+-----------------
+* Query Helpers
 
 
 Testing

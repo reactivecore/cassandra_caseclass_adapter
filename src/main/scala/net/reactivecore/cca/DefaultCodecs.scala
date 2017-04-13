@@ -5,9 +5,7 @@ import java.net.InetAddress
 import java.sql.Timestamp
 import java.util.{ Date, UUID }
 
-import shapeless.the
-
-import scala.reflect.ClassTag
+import shapeless.{ LabelledGeneric, LabelledProductTypeClass, the }
 
 trait DefaultCodecs {
 
@@ -53,6 +51,19 @@ trait DefaultCodecs {
   implicit def primitiveSeqCodec[T, CassandraType](implicit primitiveCodec: PrimitiveCassandraConversionCodec[T, CassandraType]): CassandraConversionCodec[Seq[T]] =
     SeqCodec(primitiveCodec)
 
-  implicit def primitiveOptionalCodec[T, CassandraType](implicit primitiveCodec: PrimitiveCassandraConversionCodec[T, CassandraType]): CassandraConversionCodec[Option[T]] =
-    OptionalCodec(primitiveCodec)
+  implicit def udtSeqCodec[T](implicit compoundCassandraConversionCodec: CompoundCassandraConversionCodec[T]): CassandraConversionCodec[Seq[T]] =
+    SeqUdtCodec(compoundCassandraConversionCodec)
+
+  implicit def udtSeqCodec[T <: Product](implicit codec: CassandraConversionCodec[T]): CassandraConversionCodec[Seq[T]] = {
+    val upcasted = codec.asInstanceOf[CompoundCassandraConversionCodec[T]]
+    SeqUdtCodec(upcasted)
+  }
+
+  implicit def udtSetCodec[T <: Product](implicit codec: CassandraConversionCodec[T]): CassandraConversionCodec[Set[T]] = {
+    val upcasted = codec.asInstanceOf[CompoundCassandraConversionCodec[T]]
+    SetUdtCodec(upcasted)
+  }
+
+  implicit def optionalCodec[T, CassandraType](implicit subCodec: CassandraConversionCodec[T]): CassandraConversionCodec[Option[T]] =
+    OptionalCodec(subCodec)
 }

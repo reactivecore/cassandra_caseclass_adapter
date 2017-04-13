@@ -1,6 +1,6 @@
 package net.reactivecore.cca
 
-import net.reactivecore.cca.utils.{ CassandraReader, OrderedWriter }
+import net.reactivecore.cca.utils.{ CassandraReader, GroupType, OrderedWriter }
 import shapeless._
 
 import scala.annotation.implicitNotFound
@@ -54,18 +54,14 @@ case class CompoundCassandraConversionCodec[T](
   }
 
   def orderedWrite(instance: T, writer: OrderedWriter): Unit = {
+    val group = writer.startGroup(GroupType.Compound)
     val deconstructed = deconstructor(instance)
     deconstructed.zip(fields).foreach {
       case (subFieldValue, (columnName, subCodec)) =>
-        subCodec match {
-          case c: CompoundCassandraConversionCodec[_] =>
-            val subWriter = writer.startGroup(columnName)
-            c.forceOrderedWrite(subFieldValue, subWriter)
-            writer.endGroup(subWriter)
-          case other =>
-            other.forceOrderedWrite(subFieldValue, writer)
-        }
+        group.setColumnName(columnName)
+        subCodec.forceOrderedWrite(subFieldValue, group)
     }
+    writer.endGroup(group)
   }
 }
 
@@ -86,6 +82,21 @@ case class SetCodec[SubType, CassandraType](subCodec: PrimitiveCassandraConversi
   }
 }
 
+case class SetUdtCodec[SubType, CassandraType](subCodec: CompoundCassandraConversionCodec[SubType]) extends IterableCodec[SubType, Set[SubType]] {
+
+  override def decodeFrom(reader: CassandraReader): Set[SubType] = {
+    reader.getUdtSet.map(subCodec.decodeFrom).toSet
+  }
+
+  override def orderedWrite(instance: Set[SubType], writer: OrderedWriter): Unit = {
+    val group = writer.startGroup(GroupType.SetGroup)
+    instance.foreach { v =>
+      subCodec.orderedWrite(v, group)
+    }
+    writer.endGroup(group)
+  }
+}
+
 case class SeqCodec[SubType, CassandraType](subCodec: PrimitiveCassandraConversionCodec[SubType, CassandraType]) extends IterableCodec[SubType, Seq[SubType]] {
 
   override def decodeFrom(reader: CassandraReader): Seq[SubType] = {
@@ -98,7 +109,22 @@ case class SeqCodec[SubType, CassandraType](subCodec: PrimitiveCassandraConversi
   }
 }
 
-case class OptionalCodec[SubType, CassandraType](subCodec: PrimitiveCassandraConversionCodec[SubType, CassandraType]) extends CassandraConversionCodec[Option[SubType]] {
+case class SeqUdtCodec[SubType, CassandraType](subCodec: CompoundCassandraConversionCodec[SubType]) extends IterableCodec[SubType, Seq[SubType]] {
+
+  override def decodeFrom(reader: CassandraReader): Seq[SubType] = {
+    reader.getUdtList.map(subCodec.decodeFrom).toSeq
+  }
+
+  override def orderedWrite(instance: Seq[SubType], writer: OrderedWriter): Unit = {
+    val group = writer.startGroup(GroupType.ListGroup)
+    instance.foreach { v =>
+      subCodec.orderedWrite(v, group)
+    }
+    writer.endGroup(group)
+  }
+}
+
+case class OptionalCodec[SubType](subCodec: CassandraConversionCodec[SubType]) extends CassandraConversionCodec[Option[SubType]] {
   override def decodeFrom(reader: CassandraReader): Option[SubType] = {
     if (reader.isNull) {
       None
@@ -138,9 +164,7 @@ case class PrimitiveCassandraConversionCodec[T, CassandraType: ClassTag](
 
   private[cca] def forceScalaToCassandra(o: Any): CassandraType = scalaToCassandra(o.asInstanceOf[T])
 
-  override def decodeFrom(reader: CassandraReader): T = cassandraToScala(reader.get[CassandraType].getOrElse {
-    throw new DecodingException(s"Expected non null value while reading ${reader.position}")
-  })
+  override def decodeFrom(reader: CassandraReader): T = cassandraToScala(reader.get[CassandraType])
 
   override def orderedWrite(instance: T, writer: OrderedWriter): Unit = {
     writer.write(scalaToCassandra(instance))
@@ -162,8 +186,6 @@ object PrimitiveCassandraConversionCodec {
 }
 
 object CassandraConversionCodec extends LabelledProductTypeClassCompanion[CassandraConversionCodec] with DefaultCodecs {
-
-  def generate[T <: Product](implicit ct: Lazy[CassandraConversionCodec[T]]): CompoundCassandraConversionCodec[T] = apply[T].asInstanceOf[CompoundCassandraConversionCodec[T]]
 
   object typeClass extends LabelledProductTypeClass[CassandraConversionCodec] {
 
