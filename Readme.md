@@ -50,15 +50,15 @@ Supported Types
 ---------------
 * Most fundamental types
 * Option (flaky)
-* Set
+* Set of Primitives
+* List of Primitives (as Seq)
 * Primitive UDT handling
 
 
 Not supported / tested yet
 --------------------------
-* List
 * Map
-* Combination of Set or UDT with Option
+* Combination of Set/Seq with UDT or Option
 * Adding custom types
 
 
