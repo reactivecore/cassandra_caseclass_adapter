@@ -7,11 +7,17 @@ Note:
 
 * this is in early development stage
 * meant as a case study so far
-* there are no public builds yet
 * contains weird hacks and class casts
 * not API stable
 
 Thanks a lot to the [Shapeless](https://github.com/milessabin/shapeless) team for their wonderful work.
+
+Add Dependency
+--------------
+
+Add this to your `build.sbt`:
+
+    "net.reactivecore" %% "cassandra-caseclass-adapter" % "0.0.1"
 
 Usage
 -----

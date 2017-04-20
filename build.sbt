@@ -1,5 +1,5 @@
 lazy val commonSettings = Seq(
-  version := "0.0.1-SNAPSHOT",
+  version := "0.0.1",
 
   organization := "net.reactivecore",
 
