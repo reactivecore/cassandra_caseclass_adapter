@@ -20,6 +20,29 @@ libraryDependencies <++= scalaVersion { sv =>
   } else Nil
 }
 
+pomExtra := {
+  <url>https://github.com/reactivecore/cassandra_caseclass_adapter</url>
+    <licenses>
+      <license>
+        <name>Apache License, Version 2.0</name>
+        <url>https://www.apache.org/licenses/LICENSE-2.0.html</url>
+      </license>
+    </licenses>
+    <scm>
+      <connection>scm:git:@github.com:reactivecore/cassandra_caseclass_adapter.git</connection>
+      <url>git@github.com:reactivecore/cassandra_caseclass_adapter.git</url>
+    </scm>
+    <developers>
+      <developer>
+        <id>nob13</id>
+        <name>Norbert Schultz</name>
+        <url>https://www.reactivecore.de</url>
+      </developer>
+    </developers>
+}
+
+
+
 import scalariform.formatter.preferences._
 import com.typesafe.sbt.SbtScalariform
 import com.typesafe.sbt.SbtScalariform.ScalariformKeys
