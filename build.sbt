@@ -3,14 +3,22 @@ lazy val commonSettings = Seq(
 
   organization := "net.reactivecore",
 
-  scalaVersion := "2.11.8"
+  scalaVersion := "2.11.8",
+
+  crossScalaVersions := Seq("2.10.6", "2.11.8", "2.12.1")
 )
 
 libraryDependencies ++= Seq(
   "com.chuusai" %% "shapeless" % "2.3.2",
   "com.datastax.cassandra" % "cassandra-driver-core" % "3.0.7",
-  "org.scalatest" %% "scalatest" % "2.2.4" % "test"
+  "org.scalatest" %% "scalatest" % "3.0.1" % "test"
 )
+
+libraryDependencies <++= scalaVersion { sv =>
+  if (sv.startsWith("2.10")){
+    Seq(compilerPlugin("org.scalamacros" % "paradise" % "2.1.0" cross CrossVersion.full))
+  } else Nil
+}
 
 import scalariform.formatter.preferences._
 import com.typesafe.sbt.SbtScalariform
