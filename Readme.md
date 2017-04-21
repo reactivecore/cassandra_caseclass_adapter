@@ -6,7 +6,6 @@ Maps Case classes to the Cassandra Java Driver using shapeless powered type clas
 Note: 
 
 * this is in early development stage
-* meant as a case study so far
 * contains weird hacks and class casts
 * not API stable
 
@@ -15,9 +14,15 @@ Thanks a lot to the [Shapeless](https://github.com/milessabin/shapeless) team fo
 Add Dependency
 --------------
 
+Builds are available for Scala 2.10, 2.11, 2.12 having a dependency to the Cassandra Driver 3.0.7.
+
 Add this to your `build.sbt`:
 
-    "net.reactivecore" %% "cassandra-caseclass-adapter" % "0.0.1"
+    libraryDependencies += "net.reactivecore" %% "cassandra-caseclass-adapter" % "0.0.1"
+    
+If you use Scala 2.10, you also need (see [Shapeless Documentation](https://github.com/milessabin/shapeless#shapeless-232-with-sbt))
+    
+    libraryDependencies += compilerPlugin("org.scalamacros" % "paradise" % "2.1.0" cross CrossVersion.full)
 
 Usage
 -----
@@ -43,7 +48,7 @@ Have a cassandra table
 
 And let the Adapter automatically generated
       
-      import package net.reactivecore.cca.CassandraCaseClassAdapter
+      import net.reactivecore.cca.CassandraCaseClassAdapter
 
       val adapter = CassandraCaseClassAdapter.make[Person]("persons")
       val session = // open cassandra session
