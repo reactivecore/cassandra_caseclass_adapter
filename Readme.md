@@ -1,6 +1,8 @@
 Cassandra Case Class Adapters
 =============================
 
+[![Build Status](https://travis-ci.org/reactivecore/cassandra_caseclass_adapter.svg?branch=master)](https://travis-ci.org/reactivecore/cassandra_caseclass_adapter)
+
 Maps Case classes to the Cassandra Java Driver using shapeless powered type classes.
 
 Note: 
