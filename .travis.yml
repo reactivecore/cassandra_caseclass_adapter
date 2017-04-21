@@ -4,6 +4,10 @@ language: scala
 # services:
 #  - cassandra
 
+dist: trusty
+
+sudo: required
+
 scala:
   - 2.10.6
   - 2.11.8
