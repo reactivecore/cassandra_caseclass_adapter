@@ -23,5 +23,8 @@ before_install:
   - java -version
   - sudo rm -rf /var/lib/cassandra/*
   - wget http://archive.apache.org/dist/cassandra/3.3/apache-cassandra-3.3-bin.tar.gz && tar -xvzf apache-cassandra-3.3-bin.tar.gz
+  - export JVM_OPTS_OLD=$JVM_OPTS
+  - unset JVM_OPTS
   - sudo sh ./apache-cassandra-3.3/bin/cassandra -R
+  - export JVM_OPTS=$JVM_OPTS_OLD
   - sleep 20
