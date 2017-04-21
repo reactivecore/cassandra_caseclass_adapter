@@ -46,6 +46,10 @@ abstract class TestBaseWithCassandra extends TestBase {
     _cluster = Some(Cluster.builder()
       .withQueryOptions(queryOptions)
       .addContactPoint("127.0.0.1").build())
+
+    if (!autoCleanDatabase){
+      clearKeyspace()
+    }
   }
 
   override protected def afterAll(): Unit = {
