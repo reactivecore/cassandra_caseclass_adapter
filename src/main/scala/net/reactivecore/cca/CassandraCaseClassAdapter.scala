@@ -1,10 +1,11 @@
 package net.reactivecore.cca
 
-import com.datastax.driver.core.{ Row, Session, UserType }
+import com.datastax.oss.driver.api.core.CqlSession
+import com.datastax.oss.driver.api.core.`type`.UserDefinedType
+import com.datastax.oss.driver.api.core.cql.Row
 import net.reactivecore.cca.utils._
 import shapeless._
 
-import scala.collection.mutable
 import scala.collection.JavaConverters._
 
 trait CassandraCaseClassAdapter[T] {
@@ -18,7 +19,7 @@ trait CassandraCaseClassAdapter[T] {
   /**
    * Insert an instance into cassandra.
    */
-  def insert(instance: T, session: Session): Unit
+  def insert(instance: T, session: CqlSession): Unit
 
   /**
    * Returns the associated table name.
@@ -34,7 +35,7 @@ trait CassandraCaseClassAdapter[T] {
   /**
    * Load all of from cassandra. (Danger, could be many elements).
    */
-  def loadAllFromCassandra(session: Session): Seq[T]
+  def loadAllFromCassandra(session: CqlSession): Seq[T]
 }
 
 private class AutoCassandraCaseClassAdapter[T: CompoundCassandraConversionCodec](val tableName: String) extends CassandraCaseClassAdapter[T] {
@@ -53,8 +54,9 @@ private class AutoCassandraCaseClassAdapter[T: CompoundCassandraConversionCodec]
     codec.fields.map(_._1)
   }
 
-  override def insert(instance: T, session: Session): Unit = {
+  override def insert(instance: T, session: CqlSession): Unit = {
     val query = s"INSERT INTO ${tableName} (${columnNames.mkString(",")}) VALUES (${columnNames.map(_ => "?").mkString(",")})"
+    val preparedQuery = session.prepare(query)
     val writer = OrderedWriter.makeCollector()
     codec.orderedWrite(instance, writer)
 
@@ -68,7 +70,7 @@ private class AutoCassandraCaseClassAdapter[T: CompoundCassandraConversionCodec]
     }
 
     val treated = treatUdtValues(firstGroup, session)
-    session.execute(query, treated: _*)
+    session.execute(preparedQuery.bind(treated: _*))
   }
 
   /**
@@ -76,7 +78,7 @@ private class AutoCassandraCaseClassAdapter[T: CompoundCassandraConversionCodec]
    * This is dependent to a running session connection (ast there is no way in creating UDTValues without
    * UserType, which is also not possible to create without DB Connection).
    */
-  private def treatUdtValues(values: IndexedSeq[AnyRef], session: Session, typeHint: Option[UserType] = None): IndexedSeq[AnyRef] = {
+  private def treatUdtValues(values: IndexedSeq[AnyRef], session: CqlSession, typeHint: Option[UserDefinedType] = None): IndexedSeq[AnyRef] = {
     // TODO: This is messy and only supports depth of one...
     values.map {
       case CompiledGroup(columnName, subValues, GroupType.ListGroup) =>
@@ -112,9 +114,8 @@ private class AutoCassandraCaseClassAdapter[T: CompoundCassandraConversionCodec]
     }
   }
 
-  override def loadAllFromCassandra(session: Session): Seq[T] = {
+  override def loadAllFromCassandra(session: CqlSession): Seq[T] = {
     val query = s"SELECT * FROM ${tableName};"
-    import scala.collection.JavaConverters._
     session.execute(query).all().asScala.map(fromRow)
   }
 
@@ -129,7 +130,6 @@ object CassandraCaseClassAdapter {
    * @param tableName cassandra table name this adapter is bound too.
    */
   def make[T <: Product: CassandraConversionCodec](tableName: String): CassandraCaseClassAdapter[T] = new AutoCassandraCaseClassAdapter[T](tableName)(
-    implicitly[CassandraConversionCodec[T]].asInstanceOf[CompoundCassandraConversionCodec[T]]
-  )
+    implicitly[CassandraConversionCodec[T]].asInstanceOf[CompoundCassandraConversionCodec[T]])
 
 }

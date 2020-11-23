@@ -1,6 +1,7 @@
 package net.reactivecore.cca.utils
 
-import com.datastax.driver.core.{ GettableData, Row, UDTValue }
+import com.datastax.oss.driver.api.core.cql.Row
+import com.datastax.oss.driver.api.core.data.{ GettableByName, UdtValue }
 import net.reactivecore.cca.DecodingException
 
 import scala.reflect.ClassTag
@@ -60,7 +61,7 @@ object CassandraReader {
     override def isNull: Boolean = true
   }
 
-  private case class RowCassandraReader(path: List[Any], row: GettableData) extends CassandraReader {
+  private case class RowCassandraReader(path: List[Any], row: GettableByName) extends CassandraReader {
     override def get[CassandraType: ClassTag]: CassandraType = {
       throw new DecodingException(s"Expected ${className[CassandraType]} at ${position}, got pure row")
     }
@@ -96,7 +97,7 @@ object CassandraReader {
     }
   }
 
-  private case class RowCellReaderByCellId(path: List[Any], row: GettableData, cellId: Int) extends CassandraReader {
+  private case class RowCellReaderByCellId(path: List[Any], row: GettableByName, cellId: Int) extends CassandraReader {
     override def get[CassandraType: ClassTag]: CassandraType = {
       row.get(cellId, clazzOf[CassandraType])
     }
@@ -106,7 +107,7 @@ object CassandraReader {
     }
 
     override def getUdtSet: Iterable[CassandraReader] = {
-      row.getSet(cellId, clazzOf[UDTValue]).asScala.map(v => RowCassandraReader("set" :: path, v))
+      row.getSet(cellId, clazzOf[UdtValue]).asScala.map(v => RowCassandraReader("set" :: path, v))
     }
 
     override def getList[CassandraType: ClassTag]: Iterable[CassandraType] = {
@@ -114,11 +115,11 @@ object CassandraReader {
     }
 
     override def getUdtList: Iterable[CassandraReader] = {
-      row.getList(cellId, classOf[UDTValue]).asScala.map(v => RowCassandraReader("list" :: path, v))
+      row.getList(cellId, classOf[UdtValue]).asScala.map(v => RowCassandraReader("list" :: path, v))
     }
 
     override def getNamed(name: String): CassandraReader = {
-      val udtValue = row.getUDTValue(cellId)
+      val udtValue = row.getUdtValue(cellId)
       if (udtValue == null || udtValue.isNull(name)) {
         NullReader(name :: path)
       } else {
@@ -127,7 +128,7 @@ object CassandraReader {
     }
 
     override def getByNum(num: Int): CassandraReader = {
-      val udtValue = row.getUDTValue(cellId)
+      val udtValue = row.getUdtValue(cellId)
       if (udtValue == null || udtValue.isNull(num)) {
         NullReader(num :: path)
       } else {
@@ -136,7 +137,7 @@ object CassandraReader {
     }
   }
 
-  private case class RowCellReaderByCellName(path: List[Any], row: GettableData, columnName: String) extends CassandraReader {
+  private case class RowCellReaderByCellName(path: List[Any], row: GettableByName, columnName: String) extends CassandraReader {
     override def get[CassandraType: ClassTag]: CassandraType = {
       row.get(columnName, clazzOf[CassandraType])
     }
@@ -146,7 +147,7 @@ object CassandraReader {
     }
 
     override def getUdtSet: Iterable[CassandraReader] = {
-      row.getSet(columnName, clazzOf[UDTValue]).asScala.map(v => RowCassandraReader("set" :: path, v))
+      row.getSet(columnName, clazzOf[UdtValue]).asScala.map(v => RowCassandraReader("set" :: path, v))
     }
 
     override def getList[CassandraType: ClassTag]: Iterable[CassandraType] = {
@@ -154,11 +155,11 @@ object CassandraReader {
     }
 
     override def getUdtList: Iterable[CassandraReader] = {
-      row.getList(columnName, classOf[UDTValue]).asScala.map(v => RowCassandraReader("list" :: path, v))
+      row.getList(columnName, classOf[UdtValue]).asScala.map(v => RowCassandraReader("list" :: path, v))
     }
 
     override def getNamed(name: String): CassandraReader = {
-      val udtValue = row.getUDTValue(columnName)
+      val udtValue = row.getUdtValue(columnName)
       if (udtValue == null || udtValue.isNull(name)) {
         NullReader(name :: path)
       } else {
@@ -167,7 +168,7 @@ object CassandraReader {
     }
 
     override def getByNum(num: Int): CassandraReader = {
-      val udtValue = row.getUDTValue(columnName)
+      val udtValue = row.getUdtValue(columnName)
       if (udtValue == null || udtValue.isNull(num)) {
         NullReader(num :: path)
       } else {

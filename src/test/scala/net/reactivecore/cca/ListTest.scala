@@ -3,9 +3,8 @@ package net.reactivecore.cca
 class ListTest extends TestBaseWithCassandra {
 
   case class CourseRecord(
-    user: String,
-    grades: Seq[Float]
-  )
+      user: String,
+      grades: Seq[Float])
 
   val ddl =
     """

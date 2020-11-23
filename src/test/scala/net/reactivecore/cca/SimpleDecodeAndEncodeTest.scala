@@ -2,17 +2,16 @@ package net.reactivecore.cca
 
 import java.util.UUID
 
-import com.datastax.driver.core.utils.UUIDs
+import com.datastax.oss.driver.api.core.uuid.Uuids
 
 class SimpleDecodeAndEncodeTest extends TestBaseWithCassandra {
 
   override protected val autoCleanDatabase = false
 
   case class Person(
-    id: UUID,
-    name: String,
-    age: Int
-  )
+      id: UUID,
+      name: String,
+      age: Int)
 
   val ddl = s"""
      |CREATE TABLE persons (
@@ -27,11 +26,11 @@ class SimpleDecodeAndEncodeTest extends TestBaseWithCassandra {
     implicit val adapter = CassandraCaseClassAdapter.make[Person]("persons")
 
     def insertManual(p: Person): Unit = {
-      val query = "INSERT INTO persons (id, name, age) VALUES (?, ?, ?);"
-      session.execute(query, p.id, p.name, p.age.asInstanceOf[AnyRef])
+      val query = session.prepare("INSERT INTO persons (id, name, age) VALUES (?, ?, ?)")
+      session.execute(query.bind(p.id, p.name, p.age.asInstanceOf[AnyRef]))
     }
 
-    val testPerson = Person(UUIDs.random(), "John Doe", 42)
+    val testPerson = Person(Uuids.random(), "John Doe", 42)
   }
 
   trait EnvWithNewKeyspace extends Env {
@@ -65,8 +64,7 @@ class SimpleDecodeAndEncodeTest extends TestBaseWithCassandra {
     val otherPerson = Person(
       id = UUID.randomUUID(),
       age = 21,
-      name = "Alice"
-    )
+      name = "Alice")
     adapter.insert(otherPerson, session)
     adapter.loadAllFromCassandra(session).sortBy(_.age) shouldBe Seq(otherPerson, testPerson)
   }

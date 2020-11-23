@@ -34,8 +34,7 @@ trait OrderedWriter {
 case class CompiledGroup(
     name: String,
     values: IndexedSeq[AnyRef],
-    groupType: GroupType
-) {
+    groupType: GroupType) {
   def isAnonymous: Boolean = name.isEmpty
 }
 
