@@ -16,11 +16,11 @@ Thanks a lot to the [Shapeless](https://github.com/milessabin/shapeless) team fo
 Add Dependency
 --------------
 
-Builds are available for Scala 2.10, 2.11, 2.12 having a dependency to the Cassandra Driver 3.0.7.
+Builds are available for Scala 2.11, 2.12 having a dependency to the Cassandra Driver 4.7.2.
 
 Add this to your `build.sbt`:
 
-    libraryDependencies += "net.reactivecore" %% "cassandra-caseclass-adapter" % "0.0.1"
+    libraryDependencies += "net.reactivecore" %% "cassandra-caseclass-adapter" % "0.0.2"
     
 If you use Scala 2.10, you also need (see [Shapeless Documentation](https://github.com/milessabin/shapeless#shapeless-232-with-sbt))
     
