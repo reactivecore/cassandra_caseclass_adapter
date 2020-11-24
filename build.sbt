@@ -1,7 +1,7 @@
 import sbt.Keys.scalacOptions
 
 lazy val commonSettings = Seq(
-  version := "0.0.2",
+  version := "0.0.2-SNAPSHOT",
 
   organization := "net.reactivecore",
 
@@ -60,6 +60,7 @@ SbtScalariform.scalariformSettings
 ScalariformKeys.preferences := ScalariformKeys.preferences.value
   .setPreference(AlignSingleLineCaseStatements, true)
   .setPreference(DoubleIndentConstructorArguments, true)
+  .setPreference(DanglingCloseParenthesis, scalariform.formatter.preferences.Preserve)
 
 lazy val root = (project in file("."))
   .settings(commonSettings: _*)
