@@ -1,4 +1,5 @@
 import sbt.Keys.scalacOptions
+import sbt.url
 
 lazy val commonSettings = Seq(
   version := "0.0.2",
@@ -28,27 +29,14 @@ libraryDependencies ++= {
 
 }
 
-pomExtra := {
-  <url>https://github.com/reactivecore/cassandra_caseclass_adapter</url>
-    <licenses>
-      <license>
-        <name>Apache License, Version 2.0</name>
-        <url>https://www.apache.org/licenses/LICENSE-2.0.html</url>
-      </license>
-    </licenses>
-    <scm>
-      <connection>scm:git:@github.com:reactivecore/cassandra_caseclass_adapter.git</connection>
-      <url>git@github.com:reactivecore/cassandra_caseclass_adapter.git</url>
-    </scm>
-    <developers>
-      <developer>
-        <id>nob13</id>
-        <name>Norbert Schultz</name>
-        <url>https://www.reactivecore.de</url>
-      </developer>
-    </developers>
-}
-
+// Releasing settings
+ThisBuild / publishTo := sonatypePublishTo.value
+ThisBuild / publishMavenStyle := true
+ThisBuild / licenses := Seq("APL2" -> url("http://www.apache.org/licenses/LICENSE-2.0.txt"))
+ThisBuild / homepage := Some(url("https://github.com/reactivecore/cassandra_caseclass_adapter"))
+ThisBuild / developers := List(
+  Developer(id="nob13", name="Norbert Schultz", email="norbert.schultz@reactivecore.de", url=url("https://www.reactivecore.de"))
+)
 
 
 import scalariform.formatter.preferences._
