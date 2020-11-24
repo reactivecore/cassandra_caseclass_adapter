@@ -11,7 +11,8 @@ class SimpleDecodeAndEncodeTest extends TestBaseWithCassandra {
   case class Person(
       id: UUID,
       name: String,
-      age: Int)
+      age: Int
+  )
 
   val ddl = s"""
      |CREATE TABLE persons (

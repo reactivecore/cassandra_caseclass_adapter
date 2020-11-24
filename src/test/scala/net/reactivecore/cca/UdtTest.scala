@@ -5,11 +5,13 @@ class UdtTest extends TestBaseWithCassandra {
   case class Address(
       street: String,
       num: Int,
-      city: String)
+      city: String
+  )
 
   case class UserWithAdress(
       user: String,
-      address: Address)
+      address: Address
+  )
 
   val ddl =
     """
@@ -35,7 +37,9 @@ class UdtTest extends TestBaseWithCassandra {
       address = Address(
         street = "Alexanderplatz",
         num = 1,
-        city = "Berlin"))
+        city = "Berlin"
+      )
+    )
   }
 
   it should "load and save" in new Env {

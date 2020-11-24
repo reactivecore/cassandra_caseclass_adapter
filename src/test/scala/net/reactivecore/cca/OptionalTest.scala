@@ -7,7 +7,8 @@ class OptionalTest extends TestBaseWithCassandra {
   case class User(
       id: UUID,
       name: String,
-      oemail: Option[String])
+      oemail: Option[String]
+  )
 
   val ddl =
     """

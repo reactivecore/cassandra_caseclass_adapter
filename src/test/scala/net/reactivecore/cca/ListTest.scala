@@ -4,7 +4,8 @@ class ListTest extends TestBaseWithCassandra {
 
   case class CourseRecord(
       user: String,
-      grades: Seq[Float])
+      grades: Seq[Float]
+  )
 
   val ddl =
     """

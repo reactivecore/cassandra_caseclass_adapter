@@ -4,19 +4,23 @@ class ComplexTypesTest extends TestBaseWithCassandra {
 
   case class UdtValue(
       name: String,
-      age: Option[Int])
+      age: Option[Int]
+  )
 
   case class ListOfUdt(
       id: Int,
-      values: Seq[UdtValue])
+      values: Seq[UdtValue]
+  )
 
   case class SetOfUdt(
       id: Int,
-      values: Set[UdtValue])
+      values: Set[UdtValue]
+  )
 
   case class OptionalUdt(
       id: Int,
-      value: Option[UdtValue])
+      value: Option[UdtValue]
+  )
 
   val ddl =
     """

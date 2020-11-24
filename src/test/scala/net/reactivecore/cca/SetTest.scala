@@ -4,7 +4,8 @@ class SetTest extends TestBaseWithCassandra {
 
   case class Schoolclass(
       id: Int,
-      children: Set[String])
+      children: Set[String]
+  )
 
   val ddl =
     """

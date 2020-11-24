@@ -20,7 +20,8 @@ class TypeTests extends TestBaseWithCassandra {
       bvalue: Boolean,
       bigintvalue: BigInt,
       bigdecimal: BigDecimal,
-      inet: InetAddress)
+      inet: InetAddress
+  )
 
   val ddl =
     """
