@@ -2,25 +2,25 @@ package net.reactivecore.cca
 
 import java.net.{ Inet4Address, InetAddress }
 import java.sql.Timestamp
+import java.time.Instant
 import java.util.{ Date, UUID }
 
-import com.datastax.driver.core.utils.UUIDs
+import com.datastax.oss.driver.api.core.uuid.Uuids
 
 class TypeTests extends TestBaseWithCassandra {
 
   case class Foo(
-    id: UUID,
-    ivalue: Int,
-    lvalue: Long,
-    fvalue: Float,
-    dvalue: Double,
-    timestamp: Timestamp,
-    timestamp2: Date,
-    bvalue: Boolean,
-    bigintvalue: BigInt,
-    bigdecimal: BigDecimal,
-    inet: InetAddress
-  )
+      id: UUID,
+      ivalue: Int,
+      lvalue: Long,
+      fvalue: Float,
+      dvalue: Double,
+      timestamp: Timestamp,
+      timestamp2: Instant,
+      bvalue: Boolean,
+      bigintvalue: BigInt,
+      bigdecimal: BigDecimal,
+      inet: InetAddress)
 
   val ddl =
     """
@@ -48,18 +48,17 @@ class TypeTests extends TestBaseWithCassandra {
     val currentTimeMs = System.currentTimeMillis()
 
     val instance = Foo(
-      id = UUIDs.timeBased(),
+      id = Uuids.timeBased(),
       ivalue = 32,
       lvalue = 453496346883423L,
       dvalue = 3.14159242345,
       fvalue = 6.12f,
       timestamp = new Timestamp(currentTimeMs),
-      timestamp2 = new Date(currentTimeMs + 1000),
+      timestamp2 = Instant.ofEpochSecond(currentTimeMs + 1000),
       bvalue = true,
       bigintvalue = BigInt("35358348563496734975643793476987356735967"),
       bigdecimal = BigDecimal("325482395843957349753745.25425745743986734976493"),
-      inet = InetAddress.getByName("1.2.3.4")
-    )
+      inet = InetAddress.getByName("1.2.3.4"))
   }
 
   it should "read and write" in new Env {

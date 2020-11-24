@@ -38,8 +38,7 @@ case class CompoundCassandraConversionCodec[T](
     // Constructor from pure Scala Types
     constructor: Seq[Any] => T,
     // Deconstructor into pure scala types.
-    deconstructor: T => List[Any]
-) extends CassandraConversionCodec[T] {
+    deconstructor: T => List[Any]) extends CassandraConversionCodec[T] {
 
   def size: Int = fields.size
 
@@ -147,14 +146,12 @@ object CompoundCassandraConversionCodec {
   def makeEmpty[T](instance: T): CompoundCassandraConversionCodec[T] = CompoundCassandraConversionCodec(
     Nil,
     _ => instance,
-    _ => Nil
-  )
+    _ => Nil)
 }
 
 case class PrimitiveCassandraConversionCodec[T, CassandraType: ClassTag](
     cassandraToScala: CassandraType => T,
-    scalaToCassandra: T => CassandraType
-) extends CassandraConversionCodec[T] {
+    scalaToCassandra: T => CassandraType) extends CassandraConversionCodec[T] {
 
   val classTag: ClassTag[CassandraType] = the[ClassTag[CassandraType]]
 
@@ -174,15 +171,13 @@ case class PrimitiveCassandraConversionCodec[T, CassandraType: ClassTag](
 object PrimitiveCassandraConversionCodec {
   def makeTrivial[T: ClassTag] = PrimitiveCassandraConversionCodec[T, T](
     cassandraToScala = c => if (c == null) {
-    throw new DecodingException(s"Got null when value was expected")
-  } else c,
-    scalaToCassandra = s => s
-  )
+      throw new DecodingException(s"Got null when value was expected")
+    } else c,
+    scalaToCassandra = s => s)
 
   def makeTrivialConverted[T, CassandraType: ClassTag](implicit encoding: T => CassandraType, back: CassandraType => T) = PrimitiveCassandraConversionCodec[T, CassandraType](
     cassandraToScala = back,
-    scalaToCassandra = encoding
-  )
+    scalaToCassandra = encoding)
 }
 
 object CassandraConversionCodec extends LabelledProductTypeClassCompanion[CassandraConversionCodec] with DefaultCodecs {
@@ -195,8 +190,7 @@ object CassandraConversionCodec extends LabelledProductTypeClassCompanion[Cassan
           CompoundCassandraConversionCodec[::[H, T]](
             fields = name -> headCodec :: c.fields,
             constructor = values => values.head.asInstanceOf[H] :: c.constructor(values.tail),
-            deconstructor = value => value.head :: c.deconstructor(value.tail)
-          )
+            deconstructor = value => value.head :: c.deconstructor(value.tail))
         case somethingElse => throw new IllegalStateException(s"Tails cant be from type ${somethingElse.getClass.getSimpleName}")
       }
     }
@@ -210,8 +204,7 @@ object CassandraConversionCodec extends LabelledProductTypeClassCompanion[Cassan
           CompoundCassandraConversionCodec[F](
             fields = c.fields,
             constructor = values => from(c.constructor(values)),
-            deconstructor = value => c.deconstructor(to(value))
-          )
+            deconstructor = value => c.deconstructor(to(value)))
         case somethingElse => throw new IllegalStateException(s"Can't project ${somethingElse.getClass.getSimpleName}")
       }
     }

@@ -1,6 +1,8 @@
 package net.reactivecore.cca
 
-import com.datastax.driver.core.{ Cluster, QueryOptions, Session }
+import java.net.InetSocketAddress
+
+import com.datastax.oss.driver.api.core.CqlSession
 
 /**
  * Recreates an empty unittest keyspace upon each single test.
@@ -16,14 +18,14 @@ abstract class TestBaseWithCassandra extends TestBase {
   private val createUnittestKeyspace =
     s"CREATE KEYSPACE $unittestKeyspace WITH REPLICATION = { 'class' : 'SimpleStrategy', 'replication_factor' : 1 };"
 
-  private var _session: Option[Session] = None
-  private var _cluster: Option[Cluster] = None
+  private var _sessionWithOutKeyspace: Option[CqlSession] = None
+  private var _session: Option[CqlSession] = None
 
-  protected def cluster: Cluster = _cluster.getOrElse {
+  protected def sessionWithoutKeyspace: CqlSession = _sessionWithOutKeyspace.getOrElse {
     throw new IllegalStateException(s"Cluster not initialized")
   }
 
-  protected def session: Session = _session.getOrElse {
+  protected def session: CqlSession = _session.getOrElse {
     throw new IllegalStateException(s"Sessio not initialized")
   }
 
@@ -38,23 +40,20 @@ abstract class TestBaseWithCassandra extends TestBase {
   }
 
   override protected def beforeAll(): Unit = {
-    val queryOptions = new QueryOptions()
-      .setRefreshNodeIntervalMillis(0)
-      .setRefreshNodeListIntervalMillis(0)
-      .setRefreshSchemaIntervalMillis(0)
+    _sessionWithOutKeyspace = Some(
+      CqlSession.builder()
+        .addContactPoint(new InetSocketAddress("127.0.0.1", 9042))
+        .withLocalDatacenter("datacenter1")
+        .build())
 
-    _cluster = Some(Cluster.builder()
-      .withQueryOptions(queryOptions)
-      .addContactPoint("127.0.0.1").build())
-
-    if (!autoCleanDatabase){
+    if (!autoCleanDatabase) {
       clearKeyspace()
     }
   }
 
   override protected def afterAll(): Unit = {
-    _cluster.get.close()
-    _cluster = None
+    sessionWithoutKeyspace.close()
+    _sessionWithOutKeyspace = None
   }
 
   override protected def beforeEach(): Unit = {
@@ -62,7 +61,12 @@ abstract class TestBaseWithCassandra extends TestBase {
       clearKeyspace()
     }
 
-    _session = Some(cluster.connect(unittestKeyspace))
+    _session = Some(
+      CqlSession.builder()
+        .addContactPoint(new InetSocketAddress("127.0.0.1", 9042))
+        .withLocalDatacenter("datacenter1")
+        .withKeyspace(unittestKeyspace)
+        .build())
   }
 
   override protected def afterEach(): Unit = {
@@ -71,9 +75,9 @@ abstract class TestBaseWithCassandra extends TestBase {
   }
 
   protected def clearKeyspace(): Unit = {
-    val session = cluster.connect()
-    session.execute(dropUnittestKeyspaceIfExists)
-    session.execute(createUnittestKeyspace)
-    session.close()
+    sessionWithoutKeyspace.setSchemaMetadataEnabled(false)
+    sessionWithoutKeyspace.execute(dropUnittestKeyspaceIfExists)
+    sessionWithoutKeyspace.execute(createUnittestKeyspace)
+    sessionWithoutKeyspace.setSchemaMetadataEnabled(true)
   }
 }

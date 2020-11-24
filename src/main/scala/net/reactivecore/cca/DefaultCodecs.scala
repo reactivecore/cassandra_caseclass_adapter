@@ -1,43 +1,47 @@
 package net.reactivecore.cca
 
+import java.lang
 import java.math.BigInteger
 import java.net.InetAddress
 import java.sql.Timestamp
-import java.util.{ Date, UUID }
-
-import shapeless.{ LabelledGeneric, LabelledProductTypeClass, the }
+import java.time.Instant
+import java.util.UUID
 
 trait DefaultCodecs {
 
-  implicit val stringCodec = PrimitiveCassandraConversionCodec.makeTrivial[String]
+  implicit val stringCodec: PrimitiveCassandraConversionCodec[String, String] =
+    PrimitiveCassandraConversionCodec.makeTrivial[String]
+  implicit val intCodec: PrimitiveCassandraConversionCodec[Int, Integer] =
+    PrimitiveCassandraConversionCodec.makeTrivialConverted[Int, java.lang.Integer]
+  implicit val longCodec: PrimitiveCassandraConversionCodec[Long, lang.Long] =
+    PrimitiveCassandraConversionCodec.makeTrivialConverted[Long, java.lang.Long]
+  implicit val boolCodec: PrimitiveCassandraConversionCodec[Boolean, lang.Boolean] =
+    PrimitiveCassandraConversionCodec.makeTrivialConverted[Boolean, java.lang.Boolean]
+  implicit val uuidCodec: PrimitiveCassandraConversionCodec[UUID, UUID] =
+    PrimitiveCassandraConversionCodec.makeTrivial[UUID]
+  implicit val floatCodec: PrimitiveCassandraConversionCodec[Float, lang.Float] =
+    PrimitiveCassandraConversionCodec.makeTrivialConverted[Float, java.lang.Float]
+  implicit val doubleCodec: PrimitiveCassandraConversionCodec[Double, lang.Double] =
+    PrimitiveCassandraConversionCodec.makeTrivialConverted[Double, java.lang.Double]
+  implicit val dateCodec: PrimitiveCassandraConversionCodec[Instant, Instant] =
+    PrimitiveCassandraConversionCodec.makeTrivial[Instant]
 
-  implicit val intCodec = PrimitiveCassandraConversionCodec.makeTrivialConverted[Int, java.lang.Integer]
-  implicit val longCodec = PrimitiveCassandraConversionCodec.makeTrivialConverted[Long, java.lang.Long]
-  implicit val boolCodec = PrimitiveCassandraConversionCodec.makeTrivialConverted[Boolean, java.lang.Boolean]
+  implicit val timestampCodec: PrimitiveCassandraConversionCodec[Timestamp, Instant] = PrimitiveCassandraConversionCodec[Timestamp, Instant](
+    cassandraToScala = d => new Timestamp(d.toEpochMilli),
+    scalaToCassandra = s => s.toInstant)
 
-  implicit val uuidCodec = PrimitiveCassandraConversionCodec.makeTrivial[UUID]
+  implicit val ipAdressCodec: PrimitiveCassandraConversionCodec[InetAddress, InetAddress] =
+    PrimitiveCassandraConversionCodec.makeTrivial[InetAddress]
 
-  implicit val floatCodec = PrimitiveCassandraConversionCodec.makeTrivialConverted[Float, java.lang.Float]
-  implicit val doubleCodec = PrimitiveCassandraConversionCodec.makeTrivialConverted[Double, java.lang.Double]
+  implicit val bigIntCodec: PrimitiveCassandraConversionCodec[BigInt, BigInteger] =
+    PrimitiveCassandraConversionCodec[BigInt, BigInteger](
+      cassandraToScala = b => BigInt(b),
+      scalaToCassandra = (b: BigInt) => b.bigInteger)
 
-  implicit val dateCodec = PrimitiveCassandraConversionCodec.makeTrivial[Date]
-
-  implicit val timestampCodec = PrimitiveCassandraConversionCodec[Timestamp, Date](
-    cassandraToScala = d => new Timestamp(d.getTime),
-    scalaToCassandra = s => s
-  )
-
-  implicit val ipAdressCodec = PrimitiveCassandraConversionCodec.makeTrivial[InetAddress]
-
-  implicit val bigIntCodec = PrimitiveCassandraConversionCodec[BigInt, BigInteger](
-    cassandraToScala = b => BigInt(b),
-    scalaToCassandra = (b: BigInt) => b.bigInteger
-  )
-
-  implicit val bidDecimalCodec = PrimitiveCassandraConversionCodec[BigDecimal, java.math.BigDecimal](
-    cassandraToScala = b => BigDecimal(b),
-    scalaToCassandra = s => s.underlying()
-  )
+  implicit val bidDecimalCodec: PrimitiveCassandraConversionCodec[BigDecimal, java.math.BigDecimal] =
+    PrimitiveCassandraConversionCodec[BigDecimal, java.math.BigDecimal](
+      cassandraToScala = b => BigDecimal(b),
+      scalaToCassandra = s => s.underlying())
 
   implicit def primitiveSetCodec[T, CassandraType](implicit primitiveCodec: PrimitiveCassandraConversionCodec[T, CassandraType]): CassandraConversionCodec[Set[T]] =
     SetCodec(primitiveCodec)

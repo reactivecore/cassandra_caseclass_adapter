@@ -3,9 +3,8 @@ package net.reactivecore.cca
 class SetTest extends TestBaseWithCassandra {
 
   case class Schoolclass(
-    id: Int,
-    children: Set[String]
-  )
+      id: Int,
+      children: Set[String])
 
   val ddl =
     """

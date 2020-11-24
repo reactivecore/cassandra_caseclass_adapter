@@ -3,24 +3,20 @@ package net.reactivecore.cca
 class ComplexTypesTest extends TestBaseWithCassandra {
 
   case class UdtValue(
-    name: String,
-    age: Option[Int]
-  )
+      name: String,
+      age: Option[Int])
 
   case class ListOfUdt(
-    id: Int,
-    values: Seq[UdtValue]
-  )
+      id: Int,
+      values: Seq[UdtValue])
 
   case class SetOfUdt(
-    id: Int,
-    values: Set[UdtValue]
-  )
+      id: Int,
+      values: Set[UdtValue])
 
   case class OptionalUdt(
-    id: Int,
-    value: Option[UdtValue]
-  )
+      id: Int,
+      value: Option[UdtValue])
 
   val ddl =
     """
@@ -59,15 +55,13 @@ class ComplexTypesTest extends TestBaseWithCassandra {
       ListOfUdt(1, Seq.empty),
       ListOfUdt(2, Seq(UdtValue("Alice", None))),
       ListOfUdt(3, Seq(UdtValue("Bob", Some(42)))),
-      ListOfUdt(4, Seq(UdtValue("Charly", Some(4)), UdtValue("Dorothee", Some(100))))
-    )
+      ListOfUdt(4, Seq(UdtValue("Charly", Some(4)), UdtValue("Dorothee", Some(100)))))
 
     val setValues = listValues.map { x => SetOfUdt(x.id, x.values.toSet) }
     val optionalValues = Seq(
       OptionalUdt(1, None),
       OptionalUdt(2, Some(UdtValue("Alice", Some(42)))),
-      OptionalUdt(3, Some(UdtValue("Bob", None)))
-    )
+      OptionalUdt(3, Some(UdtValue("Bob", None))))
   }
 
   it should "read and write lists of UDTs" in new Env {

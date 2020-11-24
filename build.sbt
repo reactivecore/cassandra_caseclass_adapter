@@ -1,23 +1,31 @@
+import sbt.Keys.scalacOptions
+
 lazy val commonSettings = Seq(
-  version := "0.0.1",
+  version := "0.0.2",
 
   organization := "net.reactivecore",
 
-  scalaVersion := "2.11.8",
+  scalaVersion := "2.11.12",
 
-  crossScalaVersions := Seq("2.10.6", "2.11.8", "2.12.1")
+  crossScalaVersions := Seq("2.11.12", "2.12.10"),
+
+  scalacOptions += "-target:jvm-1.8"
 )
 
 libraryDependencies ++= Seq(
-  "com.chuusai" %% "shapeless" % "2.3.2",
-  "com.datastax.cassandra" % "cassandra-driver-core" % "3.0.7",
-  "org.scalatest" %% "scalatest" % "3.0.1" % "test"
+  "com.chuusai" %% "shapeless" % "2.3.3",
+  "com.datastax.oss"   % "java-driver-core"          % "4.7.2",
+  "com.datastax.oss"   % "java-driver-query-builder" % "4.7.2",
+  "org.scalatest" %% "scalatest" % "3.0.9" % "test"
 )
 
-libraryDependencies <++= scalaVersion { sv =>
-  if (sv.startsWith("2.10")){
-    Seq(compilerPlugin("org.scalamacros" % "paradise" % "2.1.0" cross CrossVersion.full))
-  } else Nil
+libraryDependencies ++= {
+  CrossVersion.partialVersion(scalaVersion.value) match {
+    case Some((2, n)) if n <= 11 =>
+      List(compilerPlugin("org.scalamacros" % "paradise" % "2.1.1" cross CrossVersion.full))
+    case _                       => Nil
+  }
+
 }
 
 pomExtra := {
@@ -51,8 +59,7 @@ SbtScalariform.scalariformSettings
 
 ScalariformKeys.preferences := ScalariformKeys.preferences.value
   .setPreference(AlignSingleLineCaseStatements, true)
-  .setPreference(DoubleIndentClassDeclaration, true)
-  .setPreference(PreserveDanglingCloseParenthesis, true)
+  .setPreference(DoubleIndentConstructorArguments, true)
 
 lazy val root = (project in file("."))
   .settings(commonSettings: _*)
